@@ -1,0 +1,447 @@
+<!-- templates/index.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Face Mesh Detection and Eye Blink Counter</title>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f5f5f5;
+            color: #333;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 20px auto;
+            padding: 20px;
+            background-color: #fff;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        h1 {
+            text-align: center;
+            color: #2c3e50;
+            margin-bottom: 20px;
+        }
+
+        .tabs {
+            display: flex;
+            margin-bottom: 20px;
+            border-bottom: 1px solid #ddd;
+        }
+
+        .tab-btn {
+            padding: 10px 20px;
+            background-color: transparent;
+            border: none;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 500;
+            color: #777;
+            transition: all 0.3s ease;
+        }
+
+        .tab-btn.active {
+            color: #3498db;
+            border-bottom: 2px solid #3498db;
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        .controls {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        button {
+            padding: 8px 16px;
+            background-color: #3498db;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+
+        button:hover {
+            background-color: #2980b9;
+        }
+
+        button:disabled {
+            background-color: #bdc3c7;
+            cursor: not-allowed;
+        }
+
+        .video-container {
+            position: relative;
+            width: 100%;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            overflow: hidden;
+            min-height: 360px;
+            background-color: #f0f0f0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        #video-feed {
+            width: 100%;
+            height: auto;
+            display: block;
+        }
+
+        .stats-overlay {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background-color: rgba(0, 0, 0, 0.6);
+            color: white;
+            padding: 5px 10px;
+            border-radius: 4px;
+        }
+
+        .file-input {
+            margin-bottom: 20px;
+        }
+
+        .file-input label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 500;
+        }
+
+        #file-upload {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+
+        #upload-btn {
+            display: block;
+            width: 100%;
+            padding: 10px;
+        }
+
+        #result-container {
+            margin-top: 30px;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+
+        #result-container.hidden {
+            display: none;
+        }
+
+        #result-stats {
+            margin-bottom: 15px;
+        }
+
+        #preview-container {
+            width: 100%;
+        }
+
+        #preview-container img,
+        #preview-container video {
+            max-width: 100%;
+            border-radius: 4px;
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        .camera-placeholder {
+            text-align: center;
+            padding: 50px 0;
+            color: #777;
+        }
+
+        .error-message {
+            color: #e74c3c;
+            text-align: center;
+            display: none;
+            margin-top: 10px;
+        }
+
+        .loading-indicator {
+            display: none;
+            text-align: center;
+            padding: 20px;
+        }
+
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #3498db;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 10px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Face Mesh Detection and Eye Blink Counter</h1>
+
+        <div class="tabs">
+            <button class="tab-btn active" onclick="switchTab('camera-tab')">Live Camera</button>
+            <button class="tab-btn" onclick="switchTab('upload-tab')">Upload File</button>
+        </div>
+
+        <div id="camera-tab" class="tab-content active">
+            <div class="controls">
+                <button id="start-camera" onclick="startCamera()">Start Camera</button>
+                <button id="stop-camera" onclick="stopCamera()" disabled>Stop Camera</button>
+                <button id="reset-counter" onclick="resetBlinkCounter()">Reset Blink Counter</button>
+            </div>
+            <div class="video-container">
+                <div id="camera-placeholder" class="camera-placeholder">
+                    <p>Click "Start Camera" to activate the webcam</p>
+                </div>
+                <img id="video-feed" src="" alt="Camera Feed" style="display: none;">
+                <div class="stats-overlay">
+                    <div id="live-blink-count">Blink Count: 0</div>
+                </div>
+            </div>
+            <div id="camera-error" class="error-message">
+                Could not access the camera. Please ensure you've given permission and no other application is using the camera.
+            </div>
+        </div>
+
+        <div id="upload-tab" class="tab-content">
+            <form id="upload-form" enctype="multipart/form-data">
+                <div class="file-input">
+                    <label for="file-upload">Choose Image or Video:</label>
+                    <input type="file" id="file-upload" name="file" accept="image/*, video/*">
+                </div>
+                <button type="submit" id="upload-btn">Upload and Process</button>
+            </form>
+
+            <div id="loading-indicator" class="loading-indicator">
+                <div class="spinner"></div>
+                <p>Processing your file, please wait...</p>
+            </div>
+
+            <div id="result-container" class="hidden">
+                <h3>Detection Results</h3>
+                <div id="result-stats">
+                    <p>Faces detected: <span id="faces-count">0</span></p>
+                    <p>Blink count: <span id="blink-count">0</span></p>
+                </div>
+                <div id="preview-container">
+                    <!-- This will contain either an image or a video player -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Global variables
+        let cameraActive = false;
+        let videoFeed = document.getElementById('video-feed');
+        let cameraPlaceholder = document.getElementById('camera-placeholder');
+
+        // Function to switch between tabs
+        window.switchTab = function(tabId) {
+            // Hide all tab contents
+            document.querySelectorAll('.tab-content').forEach(tab => {
+                tab.classList.remove('active');
+            });
+
+            // Deactivate all tab buttons
+            document.querySelectorAll('.tab-btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+
+            // Show the selected tab content
+            document.getElementById(tabId).classList.add('active');
+
+            // Activate the clicked button
+            event.target.classList.add('active');
+
+            // If switching away from camera tab, stop camera
+            if (tabId !== 'camera-tab' && cameraActive) {
+                stopCamera();
+            }
+        };
+
+        // Start camera function
+        window.startCamera = function() {
+            try {
+                cameraActive = true;
+                document.getElementById('start-camera').disabled = true;
+                document.getElementById('stop-camera').disabled = false;
+                document.getElementById('camera-error').style.display = 'none';
+
+                // Show loading state
+                cameraPlaceholder.innerHTML = '<p>Connecting to camera...</p>';
+                cameraPlaceholder.style.display = 'block';
+                videoFeed.style.display = 'none';
+
+                // Set the src with a timestamp to avoid caching
+                videoFeed.src = '/video_feed?' + new Date().getTime();
+
+                // When the video feed loads successfully
+                videoFeed.onload = function() {
+                    cameraPlaceholder.style.display = 'none';
+                    videoFeed.style.display = 'block';
+
+                    // Reset blink counter when starting camera
+                    resetBlinkCounter();
+                };
+
+                // If there's an error loading the video feed
+                videoFeed.onerror = function() {
+                    document.getElementById('camera-error').style.display = 'block';
+                    cameraPlaceholder.innerHTML = '<p>Failed to connect to camera</p>';
+                    cameraPlaceholder.style.display = 'block';
+                    videoFeed.style.display = 'none';
+                    document.getElementById('start-camera').disabled = false;
+                    document.getElementById('stop-camera').disabled = true;
+                    cameraActive = false;
+                };
+
+                // Set a timeout in case the feed never loads or errors
+                setTimeout(function() {
+                    if (cameraPlaceholder.style.display === 'block') {
+                        document.getElementById('camera-error').style.display = 'block';
+                        cameraPlaceholder.innerHTML = '<p>Camera connection timed out</p>';
+                        document.getElementById('start-camera').disabled = false;
+                        document.getElementById('stop-camera').disabled = true;
+                        cameraActive = false;
+                    }
+                }, 10000);
+            } catch (error) {
+                console.error("Error starting camera:", error);
+                document.getElementById('camera-error').style.display = 'block';
+                document.getElementById('start-camera').disabled = false;
+                document.getElementById('stop-camera').disabled = true;
+                cameraActive = false;
+            }
+        };
+
+        // Stop camera function
+        window.stopCamera = function() {
+            try {
+                cameraActive = false;
+                videoFeed.src = '';
+                videoFeed.style.display = 'none';
+                cameraPlaceholder.style.display = 'block';
+                cameraPlaceholder.innerHTML = '<p>Click "Start Camera" to activate the webcam</p>';
+                document.getElementById('start-camera').disabled = false;
+                document.getElementById('stop-camera').disabled = true;
+                document.getElementById('camera-error').style.display = 'none';
+
+                // Send request to server to stop the camera
+                fetch('/stop_camera', { method: 'GET' }).catch(error => {
+                    console.log("Server may not support /stop_camera endpoint");
+                });
+            } catch (error) {
+                console.error("Error stopping camera:", error);
+            }
+        };
+
+        // Reset blink counter function
+        window.resetBlinkCounter = function() {
+            fetch('/reset')
+                .then(response => response.json())
+                .then(data => {
+                    document.getElementById('live-blink-count').textContent = `Blink Count: ${data.blink_count}`;
+                })
+                .catch(error => console.error('Error resetting counter:', error));
+        };
+
+        // Handle file upload
+        document.getElementById('upload-form').addEventListener('submit', function(e) {
+            e.preventDefault();
+
+            const fileInput = document.getElementById('file-upload');
+            const file = fileInput.files[0];
+
+            if (!file) {
+                alert('Please select a file');
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('file', file);
+
+            // Show loading state
+            document.getElementById('upload-btn').disabled = true;
+            document.getElementById('loading-indicator').style.display = 'block';
+            document.getElementById('result-container').classList.add('hidden');
+
+            fetch('/upload', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => {
+                if (!response.ok) {
+                    return response.json().then(data => {
+                        throw new Error(data.error || 'Server error occurred');
+                    });
+                }
+                return response.json();
+            })
+            .then(data => {
+                // Reset UI state
+                document.getElementById('upload-btn').disabled = false;
+                document.getElementById('loading-indicator').style.display = 'none';
+
+                // Update results
+                document.getElementById('faces-count').textContent = data.faces_detected;
+                document.getElementById('blink-count').textContent = data.blink_count;
+
+                // Clear previous preview
+                const previewContainer = document.getElementById('preview-container');
+                previewContainer.innerHTML = '';
+
+                // Add appropriate preview based on file type
+                if (data.file_type === 'image') {
+                    const img = document.createElement('img');
+                    img.src = `/${data.file_path}?t=${new Date().getTime()}`; // Add timestamp to prevent caching
+                    previewContainer.appendChild(img);
+                } else if (data.file_type === 'video') {
+                    const video = document.createElement('video');
+                    video.controls = true;
+                    video.src = `/${data.file_path}?t=${new Date().getTime()}`;
+                    previewContainer.appendChild(video);
+                }
+
+                // Show result container
+                document.getElementById('result-container').classList.remove('hidden');
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                document.getElementById('upload-btn').disabled = false;
+                document.getElementById('loading-indicator').style.display = 'none';
+                alert('Error: ' + error.message);
+            });
+        });
+    });
+    </script>
+</body>
+</html>
